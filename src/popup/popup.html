@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="../../icons/icon32.png" alt="" width="20" height="20">
+    <h1>LiveSub</h1>
+    <label class="switch" title="Enable/disable everywhere">
+      <input type="checkbox" id="enabled">
+      <span class="slider"></span>
+    </label>
+  </header>
+
+  <main>
+    <div class="row">
+      <label for="targetLang">Translate to</label>
+      <select id="targetLang"></select>
+    </div>
+
+    <div class="row">
+      <label for="provider">Provider</label>
+      <select id="provider"></select>
+    </div>
+
+    <div class="row">
+      <label for="displayMode">Display</label>
+      <select id="displayMode">
+        <option value="bilingual">Original + translation</option>
+        <option value="translated">Translation only</option>
+      </select>
+    </div>
+
+    <label class="check-row">
+      <input type="checkbox" id="siteEnabled">
+      <span>Enabled on <span id="siteHost">this site</span></span>
+    </label>
+
+    <hr>
+
+    <button id="liveBtn" class="live">🎙 Start live captions (no subtitles)</button>
+    <p class="hint" id="liveHint">
+      For videos without subtitles: captures tab audio and transcribes it with
+      your speech-to-text API key (set in Options).
+    </p>
+
+    <div id="status" class="status" hidden></div>
+  </main>
+
+  <footer>
+    <a href="#" id="openOptions">⚙ Options &amp; API keys</a>
+  </footer>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>LiveSub Options</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <h1>LiveSub — Options</h1>
+
+  <section>
+    <h2>Translation</h2>
+    <div class="grid">
+      <label for="targetLang">Target language</label>
+      <select id="targetLang"></select>
+
+      <label for="provider">Translation provider</label>
+      <select id="provider"></select>
+
+      <label for="displayMode">Subtitle display</label>
+      <select id="displayMode">
+        <option value="bilingual">Original + translation</option>
+        <option value="translated">Translation only</option>
+      </select>
+    </div>
+    <p class="note">
+      “Google Translate (free)” uses an unofficial public endpoint — no key needed,
+      but it is rate-limited and not guaranteed by Google. For heavy use, add a key
+      for one of the official services below.
+    </p>
+    <div class="test-row">
+      <input id="testText" value="Hello, how are you today?">
+      <button id="testBtn">Test translation</button>
+      <span id="testResult"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2>API keys</h2>
+    <p class="note">
+      Keys are stored only in this browser profile (<code>chrome.storage.local</code>)
+      and are sent only to the corresponding provider. They never touch any other
+      server. Anyone with access to this browser profile could read them, so prefer
+      keys with spending limits.
+    </p>
+    <div class="grid">
+      <label for="googleCloud">Google Cloud Translation key</label>
+      <input type="password" id="googleCloud" autocomplete="off">
+
+      <label for="azureKey">Azure Translator key</label>
+      <input type="password" id="azureKey" autocomplete="off">
+
+      <label for="azureRegion">Azure region</label>
+      <input id="azureRegion" placeholder="e.g. westeurope">
+
+      <label for="deepl">DeepL key</label>
+      <input type="password" id="deepl" autocomplete="off">
+
+      <label for="anthropic">Anthropic key</label>
+      <input type="password" id="anthropic" autocomplete="off">
+
+      <label for="anthropicModel">Anthropic model</label>
+      <input id="anthropicModel">
+
+      <label for="openai">OpenAI key</label>
+      <input type="password" id="openai" autocomplete="off">
+
+      <label for="openaiModel">OpenAI model</label>
+      <input id="openaiModel">
+    </div>
+
+    <h3>Custom OpenAI-compatible endpoint</h3>
+    <p class="note">
+      Any service exposing <code>/chat/completions</code> (and optionally
+      <code>/audio/transcriptions</code>): local Ollama/llama.cpp, OpenRouter, etc.
+      Saving a custom URL will ask for permission to contact that host.
+    </p>
+    <div class="grid">
+      <label for="customBaseUrl">Base URL</label>
+      <input id="customBaseUrl" placeholder="https://openrouter.ai/api/v1">
+
+      <label for="customKey">API key (optional)</label>
+      <input type="password" id="customKey" autocomplete="off">
+
+      <label for="customModel">Model</label>
+      <input id="customModel" placeholder="e.g. meta-llama/llama-3.3-70b-instruct">
+    </div>
+  </section>
+
+  <section>
+    <h2>Live captions (speech-to-text)</h2>
+    <p class="note">
+      Used when a video has no subtitles. Tab audio is recorded in short chunks and
+      sent to an OpenAI-compatible <code>/audio/transcriptions</code> endpoint using
+      your OpenAI key (or the custom key if no OpenAI key is set).
+    </p>
+    <div class="grid">
+      <label for="sttBaseUrl">STT base URL</label>
+      <input id="sttBaseUrl">
+
+      <label for="sttModel">STT model</label>
+      <input id="sttModel" placeholder="whisper-1 or gpt-4o-mini-transcribe">
+
+      <label for="sttChunk">Chunk length (seconds)</label>
+      <input type="number" id="sttChunk" min="3" max="15" step="1">
+
+      <label for="sttSourceLang">Spoken language hint</label>
+      <input id="sttSourceLang" placeholder="auto-detect if empty, e.g. ja">
+    </div>
+  </section>
+
+  <section>
+    <h2>Appearance</h2>
+    <div class="grid">
+      <label for="fontSize">Font size (px)</label>
+      <input type="number" id="fontSize" min="12" max="48" step="1">
+
+      <label for="textColor">Text color</label>
+      <input type="color" id="textColor">
+
+      <label for="bgOpacity">Background opacity</label>
+      <input type="range" id="bgOpacity" min="0" max="100" step="5">
+
+      <label for="hideNative">Hide the site's own captions</label>
+      <input type="checkbox" id="hideNative">
+    </div>
+  </section>
+
+  <div class="save-row">
+    <button id="saveBtn">Save</button>
+    <span id="saveStatus"></span>
+  </div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

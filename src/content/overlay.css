@@ -1,0 +1,31 @@
+#livesub-overlay {
+  position: fixed;
+  z-index: 2147483647;
+  max-width: min(80vw, 900px);
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: var(--livesub-bg, rgba(0, 0, 0, 0.72));
+  color: var(--livesub-color, #ffffff);
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: var(--livesub-font-size, 22px);
+  line-height: 1.35;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  cursor: grab;
+  user-select: none;
+  pointer-events: auto;
+}
+
+#livesub-overlay:active {
+  cursor: grabbing;
+}
+
+#livesub-overlay .livesub-original {
+  font-size: 0.75em;
+  opacity: 0.85;
+}
+
+#livesub-overlay .livesub-error {
+  font-size: 0.6em;
+  color: #ffb3b3;
+}

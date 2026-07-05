@@ -1,0 +1,13 @@
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Packaging output
+*.zip
+*.crx
+*.pem
+web-ext-artifacts/
