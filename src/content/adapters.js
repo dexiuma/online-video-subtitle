@@ -40,6 +40,22 @@
     return (text || '').replace(/<[^>]+>/g, ''); // strip VTT markup
   }
 
+  function largestVideo() {
+    let best = null;
+    let bestArea = 0;
+    for (const v of document.querySelectorAll('video')) {
+      const r = v.getBoundingClientRect();
+      const area = r.width * r.height;
+      if (area > bestArea) { best = v; bestArea = area; }
+    }
+    return best;
+  }
+
+  // When a parsed subtitle file is driving the overlay (SubtitleFileAdapter),
+  // the scraping adapters stay silent so the same line isn't emitted twice
+  // with competing timing.
+  let fileSubtitlesActive = false;
+
   // ------------------------------------------------ generic <track> subtitles
 
   class TextTrackAdapter extends BaseAdapter {
@@ -111,6 +127,7 @@
     }
 
     readActiveCues() {
+      if (fileSubtitlesActive) return;
       const cues = Array.from(this.activeTrack?.activeCues || []);
       const text = cues
         .map((c) => cleanCueText(c.text))
@@ -200,12 +217,14 @@
         if (windows.length) root = windows[windows.length - 1];
       }
       const nodes = root.querySelectorAll(this.selector);
-      if (!nodes.length) return this.emit('');
-      const text = Array.from(nodes).map((n) => n.textContent).join(' ');
-      this.emit(text);
+      const text = nodes.length
+        ? Array.from(nodes).map((n) => n.textContent).join(' ')
+        : '';
       // Only hide the native captions once this selector has actually matched
       // text, so we never blank captions we turn out not to be reading.
-      if (this.lastText && this.hideWanted) this.applyHide();
+      if (text.trim() && this.hideWanted) this.applyHide();
+      if (fileSubtitlesActive) return;
+      this.emit(text);
     }
 
     hideNative() {
@@ -224,6 +243,97 @@
       this.hideWanted = false;
       this.styleEl?.remove();
       this.styleEl = null;
+    }
+  }
+
+  // --------------------------------------------------- subtitle file adapter
+  // page-hook.js (MAIN world) posts the text of any .vtt/.srt file the player
+  // downloads. With the parsed cues we know every line and its timing up
+  // front: the whole episode is prefetched and the overlay is driven off the
+  // video clock, so nothing waits on the player's own caption rendering.
+
+  function parseTimedText(text) {
+    const cues = [];
+    const blocks = String(text).replace(/\r/g, '').split(/\n{2,}/);
+    for (const block of blocks) {
+      const lines = block.split('\n').filter((l) => l.trim());
+      const timeIdx = lines.findIndex((l) => l.includes('-->'));
+      if (timeIdx === -1) continue;
+      const [a, b] = lines[timeIdx].split('-->');
+      const start = parseTimestamp(a);
+      const end = parseTimestamp(b);
+      if (start == null || end == null) continue;
+      const cueText = lines.slice(timeIdx + 1).join(' ');
+      const clean = cleanCueText(cueText).replace(/\s+/g, ' ').trim();
+      if (clean) cues.push({ start, end, text: clean });
+    }
+    return cues;
+  }
+
+  function parseTimestamp(s) {
+    // "01:02:03.450", "02:03,450" (SRT) or "02:03.450"
+    const m = String(s).match(/(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{1,3})/);
+    if (!m) return null;
+    return Number(m[1] || 0) * 3600 + Number(m[2]) * 60 + Number(m[3]) +
+      Number(m[4].padEnd(3, '0')) / 1000;
+  }
+
+  class SubtitleFileAdapter extends BaseAdapter {
+    constructor(onCue, onUpcoming) {
+      super(onCue);
+      this.onUpcoming = onUpcoming;
+      this.cues = [];
+      this.tickTimer = null;
+      this.msgHandler = (e) => {
+        const d = e.data;
+        if (d && d.__livesub === 'subtitle-file' && typeof d.text === 'string') {
+          this.load(d.text);
+        }
+      };
+    }
+
+    start() {
+      window.addEventListener('message', this.msgHandler);
+      this.tickTimer = setInterval(() => this.tick(), 150);
+    }
+
+    stop() {
+      super.stop();
+      window.removeEventListener('message', this.msgHandler);
+      clearInterval(this.tickTimer);
+      this.cues = [];
+      fileSubtitlesActive = false;
+    }
+
+    load(text) {
+      const cues = parseTimedText(text);
+      if (cues.length < 2) return; // not a real subtitle file
+      this.cues = cues; // a new file (e.g. language switch) replaces the old
+      fileSubtitlesActive = true;
+      if (!this.onUpcoming) return;
+      // Prefetch everything, lines at/after the playhead first.
+      const now = largestVideo()?.currentTime ?? 0;
+      const ahead = [];
+      const behind = [];
+      const seen = new Set();
+      for (const cue of cues) {
+        if (seen.has(cue.text)) continue;
+        seen.add(cue.text);
+        (cue.end >= now ? ahead : behind).push(cue.text);
+      }
+      this.onUpcoming(ahead.concat(behind), this.lang);
+    }
+
+    tick() {
+      if (!this.cues.length) return;
+      const video = largestVideo();
+      if (!video) return;
+      const t = video.currentTime;
+      const text = this.cues
+        .filter((c) => t >= c.start && t <= c.end)
+        .map((c) => c.text)
+        .join(' ');
+      this.emit(text);
     }
   }
 
@@ -287,8 +397,9 @@
     if (site) adapters.push(site.make(onCue));
     else adapters.push(new DomCaptionAdapter(onCue, GENERIC_PLAYERS));
     adapters.push(new TextTrackAdapter(onCue, onUpcoming));
+    adapters.push(new SubtitleFileAdapter(onCue, onUpcoming));
     return adapters;
   }
 
-  window.__liveSubAdapters = { pickAdapters };
+  window.__liveSubAdapters = { pickAdapters, parseTimedText };
 })();

@@ -91,6 +91,10 @@
       return;
     }
 
+    // Show the original in sync with the video; the translation replaces or
+    // joins it as soon as it arrives (instantly, when cached).
+    showCaption(text, '', undefined, true);
+
     let response;
     try {
       response = await chrome.runtime.sendMessage({
@@ -186,9 +190,12 @@
     return best;
   }
 
-  function showCaption(original, translated, error) {
+  function showCaption(original, translated, error, interim = false) {
     const el = ensureOverlay();
-    const showOriginal = settings.displayMode === 'bilingual' && original;
+    // Interim = translation still on its way; show the original meanwhile
+    // even in translation-only mode so the caption stays in sync.
+    const showOriginal =
+      (settings.displayMode === 'bilingual' || (interim && !translated)) && original;
     el.querySelector('.livesub-original').textContent = showOriginal ? original : '';
     el.querySelector('.livesub-original').style.display = showOriginal ? '' : 'none';
     el.querySelector('.livesub-translated').textContent = translated || '';

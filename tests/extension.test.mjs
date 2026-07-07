@@ -183,6 +183,51 @@ check('watermark: second call sends nothing new', () => {
   assert.equal(upcoming, null);
 });
 
+// 8. Subtitle file parsing (VTT and SRT).
+const { parseTimedText } = window.__liveSubAdapters;
+check('parses WEBVTT with header, markup and multi-line cues', () => {
+  const vtt = 'WEBVTT\n\nNOTE a comment\n\n1\n00:00:01.000 --> 00:00:03.500 position:50%\n<i>Ainz-sama!</i>\nWe await your orders.\n\n00:01:00.000 --> 00:01:02.000\nUnderstood.\n';
+  assert.deepEqual(parseTimedText(vtt), [
+    { start: 1, end: 3.5, text: 'Ainz-sama! We await your orders.' },
+    { start: 60, end: 62, text: 'Understood.' }
+  ]);
+});
+check('parses SRT with comma timestamps and hour field', () => {
+  const srt = '1\n01:02:03,450 --> 01:02:05,000\nFirst line\n\n2\n01:02:06,000 --> 01:02:07,250\nSecond line\n';
+  const cues = parseTimedText(srt);
+  assert.equal(cues.length, 2);
+  assert.equal(cues[0].start, 3723.45);
+  assert.equal(cues[1].text, 'Second line');
+});
+
+// 9. SubtitleFileAdapter: a captured file drives prefetch and display.
+const fileAdapter = adapters.find((a) => a.msgHandler);
+check('subtitle file adapter is registered', () => assert.ok(fileAdapter));
+const fakeVideo = {
+  currentTime: 62.5,
+  getBoundingClientRect: () => ({ width: 1280, height: 720 })
+};
+globalThis.document.querySelectorAll = (sel) => (sel === 'video' ? [fakeVideo] : []);
+upcoming = null;
+fileAdapter.load(
+  'WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nEarly line\n\n00:01:01.000 --> 00:01:04.000\nCurrent line\n\n00:02:00.000 --> 00:02:02.000\nLater line\n'
+);
+check('file load prefetches all lines, playhead-first', () =>
+  assert.deepEqual(upcoming.texts, ['Current line', 'Later line', 'Early line']));
+let fileEmitted = null;
+fileAdapter.onCue = (text) => { fileEmitted = text; };
+fileAdapter.tick();
+await sleep(200); // emit debounce
+check('tick emits the cue under the playhead from the video clock', () =>
+  assert.equal(fileEmitted, 'Current line'));
+check('scraping adapters stay silent while the file drives the overlay', () => {
+  const dom = adapters.find((a) => a.selector);
+  let domEmitted = null;
+  dom.onCue = (t) => { domEmitted = t; };
+  dom.read();
+  assert.equal(domEmitted, null);
+});
+
 // ------------------------------------------------------------------ report
 let failed = 0;
 for (const [st, name] of results) {

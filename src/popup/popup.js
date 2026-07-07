@@ -150,6 +150,13 @@ async function injectIntoCurrentTab() {
       target,
       files: ['src/content/adapters.js', 'src/content/main.js']
     });
+    // Subtitle files fetched from here on are still caught; ones the player
+    // already downloaded need a page reload.
+    await chrome.scripting.executeScript({
+      target,
+      files: ['src/content/page-hook.js'],
+      world: 'MAIN'
+    });
   } catch {
     // Page can't be scripted (e.g. a browser page); next load will work.
   }

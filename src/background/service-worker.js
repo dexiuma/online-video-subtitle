@@ -12,6 +12,7 @@ const OFFSCREEN_URL = 'src/offscreen/offscreen.html';
 // no DOM access, no observers, no code at all.
 
 const CONTENT_SCRIPT_ID = 'livesub-captions';
+const PAGE_HOOK_ID = 'livesub-page-hook';
 
 async function syncContentScripts() {
   const { enabledSites } = await loadSettings();
@@ -27,27 +28,37 @@ async function syncContentScripts() {
   }
 
   const existing = await chrome.scripting.getRegisteredContentScripts({
-    ids: [CONTENT_SCRIPT_ID]
+    ids: [CONTENT_SCRIPT_ID, PAGE_HOOK_ID]
   });
-
-  if (!origins.length) {
-    if (existing.length) {
-      await chrome.scripting.unregisterContentScripts({ ids: [CONTENT_SCRIPT_ID] });
-    }
-    return;
+  if (existing.length) {
+    await chrome.scripting.unregisterContentScripts({
+      ids: existing.map((s) => s.id)
+    });
   }
+  if (!origins.length) return;
 
-  const script = {
-    id: CONTENT_SCRIPT_ID,
-    matches: origins,
-    js: ['src/content/adapters.js', 'src/content/main.js'],
-    css: ['src/content/overlay.css'],
-    runAt: 'document_idle',
-    allFrames: true,
-    persistAcrossSessions: true
-  };
-  if (existing.length) await chrome.scripting.updateContentScripts([script]);
-  else await chrome.scripting.registerContentScripts([script]);
+  await chrome.scripting.registerContentScripts([
+    {
+      id: CONTENT_SCRIPT_ID,
+      matches: origins,
+      js: ['src/content/adapters.js', 'src/content/main.js'],
+      css: ['src/content/overlay.css'],
+      runAt: 'document_idle',
+      allFrames: true,
+      persistAcrossSessions: true
+    },
+    {
+      // Page-world fetch/XHR wrapper that relays downloaded subtitle files;
+      // document_start so it's installed before the player requests them.
+      id: PAGE_HOOK_ID,
+      matches: origins,
+      js: ['src/content/page-hook.js'],
+      runAt: 'document_start',
+      allFrames: true,
+      world: 'MAIN',
+      persistAcrossSessions: true
+    }
+  ]);
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
