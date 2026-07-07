@@ -127,16 +127,21 @@
     prefetchNewCues() {
       const cues = this.activeTrack?.cues;
       if (!this.onUpcoming || !cues || cues.length <= this.prefetched) return;
-      const texts = [];
+      // Cues from the current position onward go first, then the ones behind
+      // it — so starting or seeking mid-episode caches what's about to play
+      // next instead of working through the episode from the top.
+      const now = this.activeVideo?.currentTime ?? 0;
+      const ahead = [];
+      const behind = [];
       const seen = new Set();
       for (let i = this.prefetched; i < cues.length; i++) {
         const clean = cleanCueText(cues[i].text).replace(/\s+/g, ' ').trim();
-        if (clean && !seen.has(clean)) {
-          seen.add(clean);
-          texts.push(clean);
-        }
+        if (!clean || seen.has(clean)) continue;
+        seen.add(clean);
+        (cues[i].startTime >= now ? ahead : behind).push(clean);
       }
       this.prefetched = cues.length;
+      const texts = ahead.concat(behind);
       if (texts.length) this.onUpcoming(texts, this.lang);
     }
 

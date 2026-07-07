@@ -252,7 +252,16 @@ async function openai(texts, opts) {
 async function deepseek(texts, opts) {
   const key = opts.settings.keys.deepseek;
   if (!key) throw new Error('DeepSeek API key is not set.');
-  return openaiCompatible('https://api.deepseek.com/v1', key, opts.settings.ai.deepseekModel, texts, opts);
+  // V4 models think by default; that adds seconds of latency per request,
+  // which subtitle translation can't afford (and doesn't need).
+  return openaiCompatible(
+    'https://api.deepseek.com/v1',
+    key,
+    opts.settings.ai.deepseekModel,
+    texts,
+    opts,
+    { thinking: { type: 'disabled' } }
+  );
 }
 
 async function customAI(texts, opts) {
@@ -262,7 +271,7 @@ async function customAI(texts, opts) {
   return openaiCompatible(customBaseUrl.replace(/\/+$/, ''), customKey, customModel, texts, opts);
 }
 
-async function openaiCompatible(baseUrl, key, model, texts, opts) {
+async function openaiCompatible(baseUrl, key, model, texts, opts, extraBody = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (key) headers['Authorization'] = `Bearer ${key}`;
   const { system, user } = buildAIMessages(texts, opts);
@@ -275,7 +284,8 @@ async function openaiCompatible(baseUrl, key, model, texts, opts) {
         { role: 'system', content: system },
         { role: 'user', content: user }
       ],
-      temperature: 0.3
+      temperature: 0.3,
+      ...extraBody
     })
   });
   const text = data.choices?.[0]?.message?.content || '';
