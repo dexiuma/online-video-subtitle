@@ -49,7 +49,9 @@ No build step — the extension is plain modern JavaScript (Manifest V3).
 ### Videos that already have subtitles
 
 1. Turn the site's subtitles **on** in the video player (any language).
-2. Click the LiveSub icon, pick your target language and provider.
+2. Click the LiveSub icon, tick **Enable on \<site\>**, and pick your target
+   language and provider. The extension is off on every site until you enable
+   it there — nothing is read or translated on sites you haven't opted in.
 3. The translated overlay appears over the video. Drag it wherever you like.
 
 By default the site's own captions are hidden while LiveSub is active and the

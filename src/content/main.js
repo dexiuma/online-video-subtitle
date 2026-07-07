@@ -10,7 +10,7 @@
     enabled: true,
     targetLang: 'en',
     displayMode: 'bilingual',
-    disabledSites: [],
+    enabledSites: [],
     overlay: {
       fontSizePx: 22,
       background: 'rgba(0, 0, 0, 0.72)',
@@ -37,12 +37,12 @@
     };
   }
 
-  function siteDisabled() {
-    return settings.disabledSites.includes(location.hostname);
+  function siteEnabled() {
+    return settings.enabledSites.includes(location.hostname);
   }
 
   function active() {
-    return settings.enabled && !siteDisabled();
+    return settings.enabled && siteEnabled();
   }
 
   async function init() {

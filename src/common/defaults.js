@@ -7,8 +7,9 @@ export const DEFAULT_SETTINGS = {
   targetLang: 'en',
   // 'translated' shows only the translation, 'bilingual' shows original + translation.
   displayMode: 'bilingual',
-  // Origins where the user turned the extension off.
-  disabledSites: [],
+  // Hostnames where the user turned the extension on. The extension does
+  // nothing on a site until it's added here (via the popup's site toggle).
+  enabledSites: [],
   translationProvider: 'google-free',
   overlay: {
     fontSizePx: 22,

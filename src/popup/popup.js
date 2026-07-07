@@ -26,7 +26,7 @@ async function init() {
 
   const host = hostOf(currentTab?.url);
   $('siteHost').textContent = host || 'this site';
-  $('siteEnabled').checked = host ? !settings.disabledSites.includes(host) : true;
+  $('siteEnabled').checked = host ? settings.enabledSites.includes(host) : false;
   $('siteEnabled').disabled = !host;
 
   await refreshLiveState();
@@ -60,10 +60,10 @@ async function save(patch) {
 async function toggleSite() {
   const host = hostOf(currentTab?.url);
   if (!host) return;
-  const set = new Set(settings.disabledSites);
-  if ($('siteEnabled').checked) set.delete(host);
-  else set.add(host);
-  await save({ disabledSites: [...set] });
+  const set = new Set(settings.enabledSites);
+  if ($('siteEnabled').checked) set.add(host);
+  else set.delete(host);
+  await save({ enabledSites: [...set] });
 }
 
 async function refreshLiveState() {
