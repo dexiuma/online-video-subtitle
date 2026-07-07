@@ -8,6 +8,8 @@
 'use strict';
 
 (() => {
+  if (window.__liveSubAdapters) return; // already injected (popup + registration)
+
   const CUE_DEBOUNCE_MS = 120;
 
   class BaseAdapter {

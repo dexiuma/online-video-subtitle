@@ -7,7 +7,8 @@
     "storage",
     "offscreen",
     "tabCapture",
-    "activeTab"
+    "activeTab",
+    "scripting"
   ],
   "host_permissions": [
     "https://translate.googleapis.com/*",
@@ -25,18 +26,6 @@
     "service_worker": "src/background/service-worker.js",
     "type": "module"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": [
-        "src/content/adapters.js",
-        "src/content/main.js"
-      ],
-      "css": ["src/content/overlay.css"],
-      "run_at": "document_idle",
-      "all_frames": true
-    }
-  ],
   "action": {
     "default_popup": "src/popup/popup.html",
     "default_title": "LiveSub",

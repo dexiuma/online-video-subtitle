@@ -30,7 +30,8 @@ It handles both situations you run into:
 - 🖱 Draggable overlay, adjustable font size / colors / background opacity
 - ⚡ Translation caching and stale-cue dropping to keep up with fast dialogue
 - 🌓 Light/dark aware popup and options UI
-- 🔒 Privacy-first: no analytics, no middleman servers, keys stay in your browser
+- 🔒 Privacy-first: no analytics, no middleman servers, keys stay in your
+  browser, and code is injected only into sites you explicitly enable
 
 ## Install (from source)
 

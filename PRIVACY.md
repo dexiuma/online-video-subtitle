@@ -3,6 +3,14 @@
 LiveSub is an open-source browser extension. It has no servers, no accounts,
 no analytics, and no telemetry.
 
+## Where the extension runs
+
+LiveSub injects code **only** into sites you explicitly enable from the popup,
+which also requires granting the browser permission for that one site. On every
+other page — including your other open tabs — the extension injects nothing,
+observes nothing, and reads nothing. Disabling a site removes both the code
+injection and the site permission.
+
 ## What data leaves your browser
 
 - **Subtitle text** of the video you are watching is sent to the translation

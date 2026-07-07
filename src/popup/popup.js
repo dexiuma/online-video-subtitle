@@ -46,7 +46,9 @@ async function init() {
 function hostOf(url) {
   try {
     const u = new URL(url);
-    return ['http:', 'https:'].includes(u.protocol) ? u.hostname : '';
+    // https only: optional_host_permissions doesn't cover http, and we don't
+    // want caption text collected from (or sent over) insecure pages anyway.
+    return u.protocol === 'https:' ? u.hostname : '';
   } catch {
     return '';
   }
@@ -58,12 +60,46 @@ async function save(patch) {
 }
 
 async function toggleSite() {
+  hideStatus();
   const host = hostOf(currentTab?.url);
   if (!host) return;
+  const origin = `https://${host}/*`;
   const set = new Set(settings.enabledSites);
-  if ($('siteEnabled').checked) set.add(host);
-  else set.delete(host);
-  await save({ enabledSites: [...set] });
+
+  if ($('siteEnabled').checked) {
+    // Ask for this origin only; content scripts are then registered for it
+    // by the service worker (see syncContentScripts).
+    const granted = await chrome.permissions.request({ origins: [origin] });
+    if (!granted) {
+      $('siteEnabled').checked = false;
+      showStatus('Permission declined — the site stays disabled.');
+      return;
+    }
+    set.add(host);
+    await save({ enabledSites: [...set] });
+    await injectIntoCurrentTab();
+  } else {
+    set.delete(host);
+    await save({ enabledSites: [...set] });
+    // Hand the origin permission back; nothing needs it anymore.
+    chrome.permissions.remove({ origins: [origin] }).catch(() => {});
+  }
+}
+
+// Registration only affects future page loads; inject into the open tab so
+// the toggle takes effect without a refresh. Both scripts guard against
+// running twice.
+async function injectIntoCurrentTab() {
+  try {
+    const target = { tabId: currentTab.id, allFrames: true };
+    await chrome.scripting.insertCSS({ target, files: ['src/content/overlay.css'] });
+    await chrome.scripting.executeScript({
+      target,
+      files: ['src/content/adapters.js', 'src/content/main.js']
+    });
+  } catch {
+    // Page can't be scripted (e.g. a browser page); next load will work.
+  }
 }
 
 async function refreshLiveState() {

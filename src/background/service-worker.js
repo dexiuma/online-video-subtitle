@@ -6,6 +6,58 @@ import { translateTexts } from './providers.js';
 
 const OFFSCREEN_URL = 'src/offscreen/offscreen.html';
 
+// ------------------------------------------- content script registration
+// Content scripts are registered dynamically, only for the sites the user
+// enabled in the popup. On every other page the extension injects nothing:
+// no DOM access, no observers, no code at all.
+
+const CONTENT_SCRIPT_ID = 'livesub-captions';
+
+async function syncContentScripts() {
+  const { enabledSites } = await loadSettings();
+
+  // Only register for origins we actually hold permission for; a host the
+  // user revoked in the browser UI must not break registration for the rest.
+  const origins = [];
+  for (const host of enabledSites) {
+    const origin = `https://${host}/*`;
+    if (await chrome.permissions.contains({ origins: [origin] })) {
+      origins.push(origin);
+    }
+  }
+
+  const existing = await chrome.scripting.getRegisteredContentScripts({
+    ids: [CONTENT_SCRIPT_ID]
+  });
+
+  if (!origins.length) {
+    if (existing.length) {
+      await chrome.scripting.unregisterContentScripts({ ids: [CONTENT_SCRIPT_ID] });
+    }
+    return;
+  }
+
+  const script = {
+    id: CONTENT_SCRIPT_ID,
+    matches: origins,
+    js: ['src/content/adapters.js', 'src/content/main.js'],
+    css: ['src/content/overlay.css'],
+    runAt: 'document_idle',
+    allFrames: true,
+    persistAcrossSessions: true
+  };
+  if (existing.length) await chrome.scripting.updateContentScripts([script]);
+  else await chrome.scripting.registerContentScripts([script]);
+}
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.settings) {
+    syncContentScripts().catch(() => {});
+  }
+});
+chrome.runtime.onInstalled.addListener(() => syncContentScripts().catch(() => {}));
+chrome.runtime.onStartup.addListener(() => syncContentScripts().catch(() => {}));
+
 // ------------------------------------------------------- translation cache
 
 const CACHE_MAX = 1000;
@@ -95,6 +147,17 @@ async function ensureOffscreen() {
 
 async function startLiveCaptions(tabId) {
   const settings = await loadSettings();
+
+  // Captions render through the content script, which only exists on
+  // enabled sites — and capturing a tab the user hasn't opted in would
+  // defeat the per-site permission model anyway.
+  const tab = await chrome.tabs.get(tabId);
+  let host = '';
+  try { host = new URL(tab.url || '').hostname; } catch { /* no URL access */ }
+  if (!settings.enabledSites.includes(host)) {
+    throw new Error('Enable LiveSub on this site first (checkbox above).');
+  }
+
   const sttKey = settings.keys.openai || settings.keys.customKey;
   if (!sttKey) {
     throw new Error(

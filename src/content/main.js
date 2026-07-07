@@ -5,6 +5,9 @@
 'use strict';
 
 (() => {
+  if (window.__liveSubLoaded) return; // already injected (popup + registration)
+  window.__liveSubLoaded = true;
+
   // Content scripts can't import ES modules; keep in sync with src/common/defaults.js.
   const DEFAULTS = {
     enabled: true,
