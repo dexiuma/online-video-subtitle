@@ -125,6 +125,7 @@
       this.hideCss = hideCss;
       this.observer = null;
       this.styleEl = null;
+      this.hideWanted = false;
     }
 
     start() {
@@ -153,9 +154,17 @@
       if (!nodes.length) return this.emit('');
       const text = Array.from(nodes).map((n) => n.textContent).join(' ');
       this.emit(text);
+      // Only hide the native captions once this selector has actually matched
+      // text, so we never blank captions we turn out not to be reading.
+      if (this.lastText && this.hideWanted) this.applyHide();
     }
 
     hideNative() {
+      this.hideWanted = true;
+      if (this.lastText) this.applyHide();
+    }
+
+    applyHide() {
       if (this.styleEl || !this.hideCss) return;
       this.styleEl = document.createElement('style');
       this.styleEl.textContent = this.hideCss;
@@ -163,6 +172,7 @@
     }
 
     showNative() {
+      this.hideWanted = false;
       this.styleEl?.remove();
       this.styleEl = null;
     }
@@ -200,13 +210,32 @@
     }
   ];
 
+  // Caption DOM of widely-used player libraries (JW Player, Video.js, Plyr,
+  // ArtPlayer). Covers the embed hosts most streaming sites load their player
+  // from, where captions are rendered as page elements rather than textTracks.
+  // Hiding is deferred until a selector matches (see DomCaptionAdapter.read),
+  // so listing several players here never blanks captions we aren't reading.
+  const GENERIC_PLAYERS = {
+    selector: [
+      '.jw-captions .jw-text-track-cue',
+      '.vjs-text-track-display .vjs-text-track-cue',
+      '.plyr__captions .plyr__caption',
+      '.art-subtitle'
+    ].join(', '),
+    hideCss:
+      '.jw-captions, .vjs-text-track-display, .plyr__captions, .art-subtitle' +
+      ' { opacity: 0 !important; }'
+  };
+
   // Returns the adapters to run on this page: a site-specific one when we have
-  // it, always including the generic textTracks adapter as a fallback.
+  // it (otherwise the generic player-library one), always including the
+  // textTracks adapter as a fallback.
   function pickAdapters(onCue) {
     const host = location.hostname;
     const adapters = [];
     const site = SITES.find((s) => s.match(host));
     if (site) adapters.push(site.make(onCue));
+    else adapters.push(new DomCaptionAdapter(onCue, GENERIC_PLAYERS));
     adapters.push(new TextTrackAdapter(onCue));
     return adapters;
   }

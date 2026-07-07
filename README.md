@@ -88,10 +88,17 @@ since subtitles need low latency.
 | YouTube | Caption DOM (`.ytp-caption-segment`) |
 | Netflix | Caption DOM (`.player-timedtext`) |
 | Prime Video | Caption DOM (`.atvwebplayersdk-captions-text`) |
+| JW Player, Video.js, Plyr, ArtPlayer | Caption DOM (generic, any site embedding these players) |
 | Anything else | Live captions mode (speech-to-text) |
 
 Adding a site is usually a ~10-line adapter in
 [`src/content/adapters.js`](src/content/adapters.js) — PRs welcome.
+
+> **Site loads its video from another domain?** Many streaming sites embed the
+> player in an iframe served from a different host. The popup detects large
+> cross-origin frames and shows an extra "Enable player frame …" toggle —
+> enable it (and turn the player's own captions on) so the captions inside the
+> frame can be read.
 
 ## Security & privacy
 

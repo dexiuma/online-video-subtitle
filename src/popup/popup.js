@@ -30,6 +30,7 @@ async function init() {
   $('siteEnabled').disabled = !host;
 
   await refreshLiveState();
+  renderFrameToggles(); // async; fills in below the site toggle when done
 
   $('enabled').addEventListener('change', () => save({ enabled: $('enabled').checked }));
   $('targetLang').addEventListener('change', () => save({ targetLang: $('targetLang').value }));
@@ -60,18 +61,22 @@ async function save(patch) {
 }
 
 async function toggleSite() {
-  hideStatus();
   const host = hostOf(currentTab?.url);
   if (!host) return;
+  await setSiteEnabled(host, $('siteEnabled').checked, $('siteEnabled'));
+}
+
+async function setSiteEnabled(host, enabled, checkbox) {
+  hideStatus();
   const origin = `https://${host}/*`;
   const set = new Set(settings.enabledSites);
 
-  if ($('siteEnabled').checked) {
+  if (enabled) {
     // Ask for this origin only; content scripts are then registered for it
     // by the service worker (see syncContentScripts).
     const granted = await chrome.permissions.request({ origins: [origin] });
     if (!granted) {
-      $('siteEnabled').checked = false;
+      checkbox.checked = false;
       showStatus('Permission declined — the site stays disabled.');
       return;
     }
@@ -83,6 +88,54 @@ async function toggleSite() {
     await save({ enabledSites: [...set] });
     // Hand the origin permission back; nothing needs it anymore.
     chrome.permissions.remove({ origins: [origin] }).catch(() => {});
+  }
+}
+
+// ------------------------------------------------------------ player frames
+// Many streaming sites load their video player from another domain in an
+// iframe; captions live inside it, so it needs its own enable toggle.
+
+async function listPlayerFrames() {
+  const pageHost = hostOf(currentTab?.url);
+  if (!pageHost) return [];
+  try {
+    // activeTab lets us look at the top frame of the current tab.
+    const [res] = await chrome.scripting.executeScript({
+      target: { tabId: currentTab.id },
+      func: () =>
+        Array.from(document.querySelectorAll('iframe')).map((f) => {
+          const r = f.getBoundingClientRect();
+          return { src: f.src || '', w: r.width, h: r.height };
+        })
+    });
+    const hosts = new Set();
+    for (const f of res?.result || []) {
+      if (f.w < 200 || f.h < 150) continue; // skip ad/tracker iframes
+      try {
+        const u = new URL(f.src);
+        if (u.protocol === 'https:' && u.hostname !== pageHost) hosts.add(u.hostname);
+      } catch { /* about:blank, javascript:, ... */ }
+    }
+    return [...hosts];
+  } catch {
+    return []; // page can't be scripted
+  }
+}
+
+async function renderFrameToggles() {
+  const hosts = await listPlayerFrames();
+  $('framesHint').hidden = !hosts.length;
+  for (const host of hosts) {
+    const label = document.createElement('label');
+    label.className = 'check-row';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = settings.enabledSites.includes(host);
+    input.addEventListener('change', () => setSiteEnabled(host, input.checked, input));
+    const span = document.createElement('span');
+    span.textContent = `Enable player frame ${host}`;
+    label.append(input, span);
+    $('frames').appendChild(label);
   }
 }
 
