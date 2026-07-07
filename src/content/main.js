@@ -67,7 +67,7 @@
 
   function startAdapters() {
     if (adapters.length) return;
-    adapters = window.__liveSubAdapters.pickAdapters(onCue);
+    adapters = window.__liveSubAdapters.pickAdapters(onCue, onUpcoming);
     for (const a of adapters) {
       a.start();
       if (settings.overlay.hideNativeCaptions) a.hideNative();
@@ -104,6 +104,15 @@
       return;
     }
     showCaption(text, response.translations[0]);
+  }
+
+  // Fire-and-forget: warm the translation cache with upcoming cue texts so
+  // they display instantly when their time comes.
+  function onUpcoming(texts) {
+    if (!active()) return;
+    chrome.runtime
+      .sendMessage({ type: 'TRANSLATE_PREFETCH', texts })
+      .catch(() => {});
   }
 
   // ------------------------------------------------------------- overlay

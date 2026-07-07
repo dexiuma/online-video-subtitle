@@ -82,6 +82,10 @@ function cacheSet(key, value) {
   }
 }
 
+// Translations currently being fetched, so a caption that appears while its
+// prefetch is still in flight joins that request instead of starting another.
+const inflight = new Map(); // key -> Promise<string>
+
 // Rolling context of recent original lines per tab, for AI providers.
 const recentLines = new Map(); // tabId -> string[]
 
@@ -101,10 +105,14 @@ async function handleTranslate({ texts, sourceLang }, tabId) {
   const results = new Array(texts.length);
   const missing = [];
   const missingIdx = [];
+  const joined = []; // [result index, in-flight promise]
   for (let i = 0; i < texts.length; i++) {
-    const hit = cacheGet(cacheKey(provider, targetLang, texts[i]));
+    const key = cacheKey(provider, targetLang, texts[i]);
+    const hit = cacheGet(key);
     if (hit !== undefined) {
       results[i] = hit;
+    } else if (inflight.has(key)) {
+      joined.push([i, inflight.get(key)]);
     } else {
       missing.push(texts[i]);
       missingIdx.push(i);
@@ -113,17 +121,29 @@ async function handleTranslate({ texts, sourceLang }, tabId) {
 
   if (missing.length) {
     const context = (recentLines.get(tabId) || []).slice(-settings.ai.contextLines);
-    const translated = await translateTexts(missing, {
+    const batch = translateTexts(missing, {
       targetLang,
       sourceLang: sourceLang || '',
       settings,
       context
     });
+    missing.forEach((text, j) => {
+      const key = cacheKey(provider, targetLang, text);
+      const one = batch.then((arr) => arr[j] ?? '');
+      inflight.set(key, one);
+      one.then((v) => cacheSet(key, v))
+        .catch(() => {})
+        .finally(() => inflight.delete(key));
+    });
+    const translated = await batch;
     for (let j = 0; j < missing.length; j++) {
       results[missingIdx[j]] = translated[j] ?? '';
-      cacheSet(cacheKey(provider, targetLang, missing[j]), translated[j] ?? '');
     }
     pushContext(tabId, missing, Math.max(settings.ai.contextLines * 3, 20));
+  }
+
+  for (const [i, promise] of joined) {
+    results[i] = await promise;
   }
 
   return { translations: results, targetLang };
@@ -244,6 +264,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   switch (msg.type) {
     case 'TRANSLATE':
       return respond(handleTranslate(msg, tabId));
+
+    case 'TRANSLATE_PREFETCH':
+      // Same path as TRANSLATE (fills the cache); result is discarded and
+      // cached texts are skipped, so repeated prefetches cost nothing.
+      handleTranslate(msg, tabId).catch(() => {});
+      return false;
 
     case 'LIVE_START':
       return respond(startLiveCaptions(msg.tabId));

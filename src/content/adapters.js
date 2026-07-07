@@ -11,6 +11,10 @@
   if (window.__liveSubAdapters) return; // already injected (popup + registration)
 
   const CUE_DEBOUNCE_MS = 120;
+  // How far ahead of playback to translate upcoming track cues, so the
+  // translation is already cached when a cue becomes visible.
+  const PREFETCH_AHEAD_S = 30;
+  const PREFETCH_MAX_CUES = 10;
 
   class BaseAdapter {
     constructor(onCue) {
@@ -35,14 +39,23 @@
     showNative() {}
   }
 
+  function cleanCueText(text) {
+    return (text || '').replace(/<[^>]+>/g, ''); // strip VTT markup
+  }
+
   // ------------------------------------------------ generic <track> subtitles
 
   class TextTrackAdapter extends BaseAdapter {
-    constructor(onCue) {
+    constructor(onCue, onUpcoming) {
       super(onCue);
+      this.onUpcoming = onUpcoming; // optional: receives future cue texts
       this.watched = new Set(); // videos we've attached to
       this.activeTrack = null;
-      this.cueHandler = () => this.readActiveCues();
+      this.activeVideo = null;
+      this.cueHandler = () => {
+        this.readActiveCues();
+        this.prefetchUpcoming();
+      };
       this.scanTimer = null;
       this.hidden = false;
     }
@@ -50,7 +63,11 @@
     start() {
       this.scan();
       // Videos and tracks appear late on many sites; rescan periodically.
-      this.scanTimer = setInterval(() => this.scan(), 2000);
+      // Prefetching here too keeps the cache warm across seeks and pauses.
+      this.scanTimer = setInterval(() => {
+        this.scan();
+        this.prefetchUpcoming();
+      }, 2000);
     }
 
     stop() {
@@ -60,6 +77,7 @@
         this.activeTrack.removeEventListener('cuechange', this.cueHandler);
         this.activeTrack = null;
       }
+      this.activeVideo = null;
       this.showNative();
     }
 
@@ -84,6 +102,7 @@
         candidates.find((t) => t.mode === 'showing') || candidates[0];
       if (track.mode === 'disabled') track.mode = 'hidden'; // load cues without rendering
       this.activeTrack = track;
+      this.activeVideo = video;
       track.addEventListener('cuechange', this.cueHandler);
       if (this.hidden) this.hideNative();
     }
@@ -91,9 +110,26 @@
     readActiveCues() {
       const cues = Array.from(this.activeTrack?.activeCues || []);
       const text = cues
-        .map((c) => (c.text || '').replace(/<[^>]+>/g, '')) // strip VTT markup
+        .map((c) => cleanCueText(c.text))
         .join(' ');
       this.emit(text);
+    }
+
+    // The track knows all future cues; hand the next few to the service
+    // worker so their translations are cached before they're shown. Cached
+    // texts cost nothing to re-request, so calling this often is fine.
+    prefetchUpcoming() {
+      if (!this.onUpcoming || !this.activeTrack?.cues || !this.activeVideo) return;
+      const now = this.activeVideo.currentTime;
+      const texts = [];
+      for (const cue of this.activeTrack.cues) {
+        if (cue.startTime <= now) continue; // cues are ordered by start time
+        if (cue.startTime > now + PREFETCH_AHEAD_S) break;
+        const clean = cleanCueText(cue.text).replace(/\s+/g, ' ').trim();
+        if (clean) texts.push(clean);
+        if (texts.length >= PREFETCH_MAX_CUES) break;
+      }
+      if (texts.length) this.onUpcoming(texts);
     }
 
     hideNative() {
@@ -229,14 +265,15 @@
 
   // Returns the adapters to run on this page: a site-specific one when we have
   // it (otherwise the generic player-library one), always including the
-  // textTracks adapter as a fallback.
-  function pickAdapters(onCue) {
+  // textTracks adapter as a fallback. onUpcoming (optional) receives batches
+  // of future cue texts for prefetching.
+  function pickAdapters(onCue, onUpcoming) {
     const host = location.hostname;
     const adapters = [];
     const site = SITES.find((s) => s.match(host));
     if (site) adapters.push(site.make(onCue));
     else adapters.push(new DomCaptionAdapter(onCue, GENERIC_PLAYERS));
-    adapters.push(new TextTrackAdapter(onCue));
+    adapters.push(new TextTrackAdapter(onCue, onUpcoming));
     return adapters;
   }
 
