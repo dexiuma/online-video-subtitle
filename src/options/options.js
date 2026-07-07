@@ -26,12 +26,14 @@ async function init() {
   $('deepl').value = k.deepl;
   $('anthropic').value = k.anthropic;
   $('openai').value = k.openai;
+  $('deepseek').value = k.deepseek;
   $('customBaseUrl').value = k.customBaseUrl;
   $('customKey').value = k.customKey;
   $('customModel').value = k.customModel;
 
   $('anthropicModel').value = settings.ai.anthropicModel;
   $('openaiModel').value = settings.ai.openaiModel;
+  $('deepseekModel').value = settings.ai.deepseekModel;
 
   $('sttBaseUrl').value = settings.stt.baseUrl;
   $('sttModel').value = settings.stt.model;
@@ -64,6 +66,7 @@ async function save() {
     deepl: $('deepl').value.trim(),
     anthropic: $('anthropic').value.trim(),
     openai: $('openai').value.trim(),
+    deepseek: $('deepseek').value.trim(),
     customBaseUrl: $('customBaseUrl').value.trim(),
     customKey: $('customKey').value.trim(),
     customModel: $('customModel').value.trim()
@@ -71,6 +74,7 @@ async function save() {
 
   settings.ai.anthropicModel = $('anthropicModel').value.trim();
   settings.ai.openaiModel = $('openaiModel').value.trim();
+  settings.ai.deepseekModel = $('deepseekModel').value.trim() || 'deepseek-chat';
 
   settings.stt.baseUrl = $('sttBaseUrl').value.trim();
   settings.stt.model = $('sttModel').value.trim();
@@ -116,6 +120,7 @@ function isBuiltinHost(originPat) {
   return [
     'https://api.openai.com/*',
     'https://api.anthropic.com/*',
+    'https://api.deepseek.com/*',
     'https://api.deepl.com/*',
     'https://api-free.deepl.com/*'
   ].includes(originPat);

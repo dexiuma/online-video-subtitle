@@ -17,7 +17,8 @@
     "https://api-free.deepl.com/*",
     "https://api.deepl.com/*",
     "https://api.openai.com/*",
-    "https://api.anthropic.com/*"
+    "https://api.anthropic.com/*",
+    "https://api.deepseek.com/*"
   ],
   "optional_host_permissions": [
     "https://*/*"

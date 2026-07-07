@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS = {
     deepl: '',
     openai: '',
     anthropic: '',
+    deepseek: '',
     customBaseUrl: '',
     customKey: '',
     customModel: ''
@@ -33,6 +34,7 @@ export const DEFAULT_SETTINGS = {
   ai: {
     openaiModel: 'gpt-4o-mini',
     anthropicModel: 'claude-haiku-4-5-20251001',
+    deepseekModel: 'deepseek-chat',
     // How many previous subtitle lines to send as context for AI translation.
     contextLines: 6
   },

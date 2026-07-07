@@ -22,9 +22,9 @@ It handles both situations you run into:
   - **Google Cloud Translation** — official API, bring your key
   - **Microsoft Azure Translator** — bring your key + region
   - **DeepL** — free (`…:fx`) and pro keys supported
-  - **Anthropic Claude / OpenAI / any OpenAI-compatible endpoint** — AI
-    translation that uses recent subtitle lines as context for better,
-    more natural results (great for idioms, names, tone)
+  - **Anthropic Claude / OpenAI / DeepSeek / any OpenAI-compatible
+    endpoint** — AI translation that uses recent subtitle lines as context
+    for better, more natural results (great for idioms, names, tone)
 - 🎙 Live captions for videos without subtitles (tab-audio → speech-to-text)
 - 🈁 Bilingual mode (original + translation) or translation-only
 - 🖱 Draggable overlay, adjustable font size / colors / background opacity
@@ -123,7 +123,7 @@ Adding a site is usually a ~10-line adapter in
 src/
 ├── background/
 │   ├── service-worker.js   # message hub, translation cache, live-caption control
-│   └── providers.js        # Google / Azure / DeepL / Anthropic / OpenAI / custom
+│   └── providers.js        # Google / Azure / DeepL / Anthropic / OpenAI / DeepSeek / custom
 ├── content/
 │   ├── adapters.js         # subtitle sources: textTracks + site-specific DOM
 │   ├── main.js             # cue pipeline + overlay rendering

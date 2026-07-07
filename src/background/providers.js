@@ -40,6 +40,11 @@ export const PROVIDERS = {
     needsKey: true,
     translate: openai
   },
+  'deepseek': {
+    label: 'DeepSeek (API key)',
+    needsKey: true,
+    translate: deepseek
+  },
   'custom-ai': {
     label: 'Custom OpenAI-compatible endpoint',
     needsKey: true,
@@ -219,6 +224,12 @@ async function openai(texts, opts) {
   const key = opts.settings.keys.openai;
   if (!key) throw new Error('OpenAI API key is not set.');
   return openaiCompatible('https://api.openai.com/v1', key, opts.settings.ai.openaiModel, texts, opts);
+}
+
+async function deepseek(texts, opts) {
+  const key = opts.settings.keys.deepseek;
+  if (!key) throw new Error('DeepSeek API key is not set.');
+  return openaiCompatible('https://api.deepseek.com/v1', key, opts.settings.ai.deepseekModel, texts, opts);
 }
 
 async function customAI(texts, opts) {
