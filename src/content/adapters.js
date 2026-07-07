@@ -11,10 +11,6 @@
   if (window.__liveSubAdapters) return; // already injected (popup + registration)
 
   const CUE_DEBOUNCE_MS = 120;
-  // How far ahead of playback to translate upcoming track cues, so the
-  // translation is already cached when a cue becomes visible.
-  const PREFETCH_AHEAD_S = 30;
-  const PREFETCH_MAX_CUES = 10;
 
   class BaseAdapter {
     constructor(onCue) {
@@ -52,9 +48,10 @@
       this.watched = new Set(); // videos we've attached to
       this.activeTrack = null;
       this.activeVideo = null;
+      this.prefetched = 0; // cues handed off for prefetch so far
       this.cueHandler = () => {
         this.readActiveCues();
-        this.prefetchUpcoming();
+        this.prefetchNewCues();
       };
       this.scanTimer = null;
       this.hidden = false;
@@ -63,10 +60,10 @@
     start() {
       this.scan();
       // Videos and tracks appear late on many sites; rescan periodically.
-      // Prefetching here too keeps the cache warm across seeks and pauses.
+      // Prefetching here too picks up cues that stream in (e.g. HLS).
       this.scanTimer = setInterval(() => {
         this.scan();
-        this.prefetchUpcoming();
+        this.prefetchNewCues();
       }, 2000);
     }
 
@@ -103,8 +100,10 @@
       if (track.mode === 'disabled') track.mode = 'hidden'; // load cues without rendering
       this.activeTrack = track;
       this.activeVideo = video;
+      this.prefetched = 0;
       track.addEventListener('cuechange', this.cueHandler);
       if (this.hidden) this.hideNative();
+      this.prefetchNewCues();
     }
 
     readActiveCues() {
@@ -115,20 +114,25 @@
       this.emit(text);
     }
 
-    // The track knows all future cues; hand the next few to the service
-    // worker so their translations are cached before they're shown. Cached
-    // texts cost nothing to re-request, so calling this often is fine.
-    prefetchUpcoming() {
-      if (!this.onUpcoming || !this.activeTrack?.cues || !this.activeVideo) return;
-      const now = this.activeVideo.currentTime;
+    // The track knows its cues in advance — for a plain VTT that's the whole
+    // episode as soon as it loads. Hand every cue we haven't sent yet to the
+    // service worker, which translates them at its own pace and caches them,
+    // so lines are already translated when playback reaches them. The
+    // watermark means each cue is sent once; streamed-in cues (HLS) are
+    // picked up as the list grows.
+    prefetchNewCues() {
+      const cues = this.activeTrack?.cues;
+      if (!this.onUpcoming || !cues || cues.length <= this.prefetched) return;
       const texts = [];
-      for (const cue of this.activeTrack.cues) {
-        if (cue.startTime <= now) continue; // cues are ordered by start time
-        if (cue.startTime > now + PREFETCH_AHEAD_S) break;
-        const clean = cleanCueText(cue.text).replace(/\s+/g, ' ').trim();
-        if (clean) texts.push(clean);
-        if (texts.length >= PREFETCH_MAX_CUES) break;
+      const seen = new Set();
+      for (let i = this.prefetched; i < cues.length; i++) {
+        const clean = cleanCueText(cues[i].text).replace(/\s+/g, ' ').trim();
+        if (clean && !seen.has(clean)) {
+          seen.add(clean);
+          texts.push(clean);
+        }
       }
+      this.prefetched = cues.length;
       if (texts.length) this.onUpcoming(texts);
     }
 

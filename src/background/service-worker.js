@@ -60,7 +60,7 @@ chrome.runtime.onStartup.addListener(() => syncContentScripts().catch(() => {}))
 
 // ------------------------------------------------------- translation cache
 
-const CACHE_MAX = 1000;
+const CACHE_MAX = 5000; // a full episode is a few hundred lines; keep several
 const cache = new Map(); // key -> translation, Map preserves insertion order (LRU-ish)
 
 function cacheKey(provider, targetLang, text) {
@@ -147,6 +147,39 @@ async function handleTranslate({ texts, sourceLang }, tabId) {
   }
 
   return { translations: results, targetLang };
+}
+
+// ------------------------------------------------------------ prefetch queue
+// Adapters may hand over a whole episode of cue texts at once. Translate them
+// in paced chunks: bursts of hundreds of parallel requests would trip provider
+// rate limits, and chunk order preserves chronological context for AI
+// providers. Display requests skip this queue entirely — they run immediately
+// and join any chunk already in flight via the inflight map.
+
+const PREFETCH_CHUNK = 20;
+const PREFETCH_GAP_MS = 250;
+const prefetchQueue = []; // { text, tabId }
+let prefetchRunning = false;
+
+function enqueuePrefetch(texts, tabId) {
+  for (const text of texts) prefetchQueue.push({ text, tabId });
+  if (!prefetchRunning) runPrefetchQueue();
+}
+
+async function runPrefetchQueue() {
+  prefetchRunning = true;
+  while (prefetchQueue.length) {
+    const chunk = prefetchQueue.splice(0, PREFETCH_CHUNK);
+    try {
+      await handleTranslate({ texts: chunk.map((c) => c.text) }, chunk[0].tabId);
+    } catch {
+      // Provider hiccup — skip this chunk; the display path retries per line.
+    }
+    if (prefetchQueue.length) {
+      await new Promise((resolve) => setTimeout(resolve, PREFETCH_GAP_MS));
+    }
+  }
+  prefetchRunning = false;
 }
 
 // ---------------------------------------------------------- live captioning
@@ -244,6 +277,10 @@ async function handleSttResult({ tabId, text }) {
 chrome.tabs.onRemoved.addListener((tabId) => {
   recentLines.delete(tabId);
   if (tabId === liveTabId) stopLiveCaptions();
+  // Don't keep translating an episode nobody is watching anymore.
+  for (let i = prefetchQueue.length - 1; i >= 0; i--) {
+    if (prefetchQueue[i].tabId === tabId) prefetchQueue.splice(i, 1);
+  }
 });
 
 // -------------------------------------------------------------- message hub
@@ -266,9 +303,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return respond(handleTranslate(msg, tabId));
 
     case 'TRANSLATE_PREFETCH':
-      // Same path as TRANSLATE (fills the cache); result is discarded and
-      // cached texts are skipped, so repeated prefetches cost nothing.
-      handleTranslate(msg, tabId).catch(() => {});
+      enqueuePrefetch(msg.texts || [], tabId);
       return false;
 
     case 'LIVE_START':

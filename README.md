@@ -28,8 +28,8 @@ It handles both situations you run into:
 - 🎙 Live captions for videos without subtitles (tab-audio → speech-to-text)
 - 🈁 Bilingual mode (original + translation) or translation-only
 - 🖱 Draggable overlay, adjustable font size / colors / background opacity
-- ⚡ Upcoming cues are translated ahead of playback (when the subtitle track
-  exposes them), plus caching and stale-cue dropping for fast dialogue
+- ⚡ When the subtitle track exposes its cues, the whole episode is translated
+  ahead of playback (paced, cached) so lines display with zero added lag
 - 🌓 Light/dark aware popup and options UI
 - 🔒 Privacy-first: no analytics, no middleman servers, keys stay in your
   browser, and code is injected only into sites you explicitly enable
