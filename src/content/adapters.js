@@ -113,9 +113,13 @@
   // For players that render captions as page elements instead of textTracks.
 
   class DomCaptionAdapter extends BaseAdapter {
-    constructor(onCue, { selector, hideCss }) {
+    constructor(onCue, { selector, hideCss, windowSelector }) {
       super(onCue);
       this.selector = selector;
+      // Optional: container holding one caption "window". Some players leave
+      // stale windows in the DOM (e.g. YouTube after seeking); when set, only
+      // the most recent window is read.
+      this.windowSelector = windowSelector;
       this.hideCss = hideCss;
       this.observer = null;
       this.styleEl = null;
@@ -138,7 +142,12 @@
     }
 
     read() {
-      const nodes = document.querySelectorAll(this.selector);
+      let root = document;
+      if (this.windowSelector) {
+        const windows = document.querySelectorAll(this.windowSelector);
+        if (windows.length) root = windows[windows.length - 1];
+      }
+      const nodes = root.querySelectorAll(this.selector);
       if (!nodes.length) return this.emit('');
       const text = Array.from(nodes).map((n) => n.textContent).join(' ');
       this.emit(text);
@@ -165,6 +174,7 @@
       make: (onCue) =>
         new DomCaptionAdapter(onCue, {
           selector: '.ytp-caption-segment',
+          windowSelector: '.caption-window',
           hideCss:
             '.ytp-caption-window-container { opacity: 0 !important; pointer-events: none !important; }'
         })
