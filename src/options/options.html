@@ -22,7 +22,15 @@
         <option value="bilingual">Original + translation</option>
         <option value="translated">Translation only</option>
       </select>
+
+      <label for="styleHint">AI translation hint</label>
+      <input id="styleHint" placeholder="e.g. fantasy anime; keep Japanese honorifics and character names">
     </div>
+    <p class="note">
+      The hint is added to the prompt when using an AI provider, along with the
+      video's title and recent lines — it helps a lot with genre-specific
+      vocabulary. Machine translation providers ignore it.
+    </p>
     <p class="note">
       “Google Translate (free)” uses an unofficial public endpoint — no key needed,
       but it is rate-limited and not guaranteed by Google. For heavy use, add a key

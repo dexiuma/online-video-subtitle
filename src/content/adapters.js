@@ -17,6 +17,7 @@
       this.onCue = onCue;
       this.lastText = '';
       this.debounceTimer = null;
+      this.lang = ''; // source language, when the subtitle source declares it
     }
 
     emit(text) {
@@ -25,7 +26,7 @@
       this.lastText = clean;
       clearTimeout(this.debounceTimer);
       // Small debounce: sites often build a caption across several mutations.
-      this.debounceTimer = setTimeout(() => this.onCue(clean), CUE_DEBOUNCE_MS);
+      this.debounceTimer = setTimeout(() => this.onCue(clean, this.lang), CUE_DEBOUNCE_MS);
     }
 
     start() {}
@@ -100,6 +101,9 @@
       if (track.mode === 'disabled') track.mode = 'hidden'; // load cues without rendering
       this.activeTrack = track;
       this.activeVideo = video;
+      // Primary subtag only ("en-US" -> "en"); a source hint stops providers
+      // from misdetecting the language of short or name-heavy lines.
+      this.lang = (track.language || '').split('-')[0].toLowerCase();
       this.prefetched = 0;
       track.addEventListener('cuechange', this.cueHandler);
       if (this.hidden) this.hideNative();
@@ -133,7 +137,7 @@
         }
       }
       this.prefetched = cues.length;
-      if (texts.length) this.onUpcoming(texts);
+      if (texts.length) this.onUpcoming(texts, this.lang);
     }
 
     hideNative() {

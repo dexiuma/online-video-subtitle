@@ -86,6 +86,17 @@ function cacheSet(key, value) {
 // prefetch is still in flight joins that request instead of starting another.
 const inflight = new Map(); // key -> Promise<string>
 
+// The tab title usually names the show and episode — cheap, high-value
+// context for AI translation (readable only for tabs on enabled sites).
+async function tabTitle(tabId) {
+  if (tabId == null) return '';
+  try {
+    return ((await chrome.tabs.get(tabId)).title || '').slice(0, 150);
+  } catch {
+    return '';
+  }
+}
+
 // Rolling context of recent original lines per tab, for AI providers.
 const recentLines = new Map(); // tabId -> string[]
 
@@ -102,11 +113,19 @@ async function handleTranslate({ texts, sourceLang }, tabId) {
   const settings = await loadSettings();
   const { translationProvider: provider, targetLang } = settings;
 
+  // Subtitle lines are short; a huge "line" is scraped garbage — cap it
+  // before it inflates a prompt.
+  texts = texts.map((t) => String(t).slice(0, 500));
+
   const results = new Array(texts.length);
   const missing = [];
   const missingIdx = [];
   const joined = []; // [result index, in-flight promise]
   for (let i = 0; i < texts.length; i++) {
+    if (!/\p{L}/u.test(texts[i])) {
+      results[i] = texts[i]; // ♪, "...", numbers: nothing to translate
+      continue;
+    }
     const key = cacheKey(provider, targetLang, texts[i]);
     const hit = cacheGet(key);
     if (hit !== undefined) {
@@ -125,7 +144,8 @@ async function handleTranslate({ texts, sourceLang }, tabId) {
       targetLang,
       sourceLang: sourceLang || '',
       settings,
-      context
+      context,
+      title: await tabTitle(tabId)
     });
     missing.forEach((text, j) => {
       const key = cacheKey(provider, targetLang, text);
@@ -158,11 +178,11 @@ async function handleTranslate({ texts, sourceLang }, tabId) {
 
 const PREFETCH_CHUNK = 20;
 const PREFETCH_GAP_MS = 250;
-const prefetchQueue = []; // { text, tabId }
+const prefetchQueue = []; // { text, tabId, sourceLang }
 let prefetchRunning = false;
 
-function enqueuePrefetch(texts, tabId) {
-  for (const text of texts) prefetchQueue.push({ text, tabId });
+function enqueuePrefetch(texts, tabId, sourceLang) {
+  for (const text of texts) prefetchQueue.push({ text, tabId, sourceLang });
   if (!prefetchRunning) runPrefetchQueue();
 }
 
@@ -171,7 +191,10 @@ async function runPrefetchQueue() {
   while (prefetchQueue.length) {
     const chunk = prefetchQueue.splice(0, PREFETCH_CHUNK);
     try {
-      await handleTranslate({ texts: chunk.map((c) => c.text) }, chunk[0].tabId);
+      await handleTranslate(
+        { texts: chunk.map((c) => c.text), sourceLang: chunk[0].sourceLang },
+        chunk[0].tabId
+      );
     } catch {
       // Provider hiccup — skip this chunk; the display path retries per line.
     }
@@ -303,7 +326,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return respond(handleTranslate(msg, tabId));
 
     case 'TRANSLATE_PREFETCH':
-      enqueuePrefetch(msg.texts || [], tabId);
+      enqueuePrefetch(msg.texts || [], tabId, msg.sourceLang || '');
       return false;
 
     case 'LIVE_START':

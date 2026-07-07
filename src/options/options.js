@@ -18,6 +18,7 @@ async function init() {
     $('provider').appendChild(opt);
   }
   $('displayMode').value = settings.displayMode;
+  $('styleHint').value = settings.ai.styleHint;
 
   const k = settings.keys;
   $('googleCloud').value = k.googleCloud;
@@ -75,6 +76,7 @@ async function save() {
   settings.ai.anthropicModel = $('anthropicModel').value.trim();
   settings.ai.openaiModel = $('openaiModel').value.trim();
   settings.ai.deepseekModel = $('deepseekModel').value.trim() || 'deepseek-v4-flash';
+  settings.ai.styleHint = $('styleHint').value.trim();
 
   settings.stt.baseUrl = $('sttBaseUrl').value.trim();
   settings.stt.model = $('sttModel').value.trim();

@@ -36,7 +36,10 @@ export const DEFAULT_SETTINGS = {
     anthropicModel: 'claude-haiku-4-5-20251001',
     deepseekModel: 'deepseek-v4-flash',
     // How many previous subtitle lines to send as context for AI translation.
-    contextLines: 6
+    contextLines: 6,
+    // Free-form note included in the AI prompt, e.g. "fantasy anime; keep
+    // Japanese honorifics and romanized character names".
+    styleHint: ''
   },
   stt: {
     // OpenAI-compatible /audio/transcriptions endpoint config.

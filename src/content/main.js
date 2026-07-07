@@ -82,7 +82,7 @@
 
   // ------------------------------------------------------ translation flow
 
-  async function onCue(text) {
+  async function onCue(text, sourceLang) {
     if (!active()) return;
     const seq = ++requestSeq;
 
@@ -93,7 +93,11 @@
 
     let response;
     try {
-      response = await chrome.runtime.sendMessage({ type: 'TRANSLATE', texts: [text] });
+      response = await chrome.runtime.sendMessage({
+        type: 'TRANSLATE',
+        texts: [text],
+        sourceLang: sourceLang || ''
+      });
     } catch {
       return; // extension reloaded / worker unavailable
     }
@@ -108,10 +112,10 @@
 
   // Fire-and-forget: warm the translation cache with upcoming cue texts so
   // they display instantly when their time comes.
-  function onUpcoming(texts) {
+  function onUpcoming(texts, sourceLang) {
     if (!active()) return;
     chrome.runtime
-      .sendMessage({ type: 'TRANSLATE_PREFETCH', texts })
+      .sendMessage({ type: 'TRANSLATE_PREFETCH', texts, sourceLang: sourceLang || '' })
       .catch(() => {});
   }
 
