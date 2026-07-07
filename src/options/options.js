@@ -74,7 +74,7 @@ async function save() {
 
   settings.ai.anthropicModel = $('anthropicModel').value.trim();
   settings.ai.openaiModel = $('openaiModel').value.trim();
-  settings.ai.deepseekModel = $('deepseekModel').value.trim() || 'deepseek-chat';
+  settings.ai.deepseekModel = $('deepseekModel').value.trim() || 'deepseek-v4-flash';
 
   settings.stt.baseUrl = $('sttBaseUrl').value.trim();
   settings.stt.model = $('sttModel').value.trim();
